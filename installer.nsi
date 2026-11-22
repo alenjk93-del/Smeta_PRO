@@ -3,11 +3,14 @@
 ; Начинка: dist\win-unpacked (electron-builder --win --dir).
 Unicode true
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
 
-; ВАЖНО про путь в File /r ниже: Linux-makensis 3.09 падает (segfault)
-; на относительном пути, на обратном слэше И на подстановке ${DEFINE}
-; в рекурсивном File /r — работает только буквальный абсолютный путь
-; прямыми слэшами. При переносе проекта правь путь в File /r руками.
+; Нагрузка кладётся ОДНИМ zip-архивом (dist/payload.zip — содержимое
+; win-unpacked) и распаковывается при установке через 7za.exe:
+; Linux-makensis 3.09 на этой машине умирает (SIGBUS/SIGSEGV) при
+; сжатии дерева файлов целиком, а SetCompress off + один файл —
+; проходит стабильно. Пути к файлам — буквальные абсолютные,
+; прямыми слэшами (другие формы тоже роняли makensis).
 
 !define APPNAME "Смета PRO"
 !define APPVER "1.11.25"
@@ -19,7 +22,7 @@ OutFile "dist/SmetaPRO-PC-Setup-v${APPVER}.exe"
 InstallDir "$LOCALAPPDATA\Programs\SmetaPRO"
 InstallDirRegKey HKCU "Software\SmetaPRO-PC" "InstallDir"
 RequestExecutionLevel user
-SetCompressor lzma
+SetCompress off
 
 !define MUI_ABORTWARNING
 !define MUI_ICON "build\icon-installer.ico"
@@ -36,8 +39,19 @@ SetCompressor lzma
 !insertmacro MUI_LANGUAGE "Russian"
 
 Section "Install"
+  CreateDirectory "$INSTDIR"
+  InitPluginsDir
+  SetOutPath "$PLUGINSDIR"
+  File "/home/hatch/workspace/smetapro-pc/payload-tools/7za.exe"
+  File "/home/hatch/workspace/smetapro-pc/dist/payload.zip"
+  DetailPrint "Распаковка файлов программы…"
+  nsExec::ExecToLog '"$PLUGINSDIR\7za.exe" x "$PLUGINSDIR\payload.zip" -o"$INSTDIR" -y -bb0'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "Не удалось распаковать файлы программы (код $0). Установка прервана."
+    Abort
+  ${EndIf}
   SetOutPath "$INSTDIR"
-  File /r "/home/hatch/workspace/smetapro-pc/dist/win-unpacked/*.*"
 
   WriteRegStr HKCU "Software\SmetaPRO-PC" "InstallDir" "$INSTDIR"
 

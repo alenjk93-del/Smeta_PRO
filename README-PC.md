@@ -40,6 +40,8 @@ cp ~/workspace/github/Smeta-PRO/smeta-pro/assets/index.html \
 # и APPVER в installer.nsi)
 npm install
 npx electron-builder --win --x64 --dir     # начинка: dist/win-unpacked
+# свернуть начинку в один архив (установщик распаковывает его 7za.exe):
+(cd dist/win-unpacked && zip -r -6 ../payload.zip .)
 makensis installer.nsi                     # установщик: dist/*.exe
 # результат: dist/SmetaPRO-PC-Setup-v<version>.exe
 ```
@@ -50,12 +52,12 @@ makensis installer.nsi                     # установщик: dist/*.exe
 заменён копией rcedit-x64.exe, иначе app-builder падает на wow64) и
 **makensis** (пакет nsis). Установщик собирается своим installer.nsi,
 а НЕ средствами electron-builder: его NSIS-шаг требует wine32.
-Подводные камни makensis 3.09 (Ubuntu): падает с segfault, если в
-`File /r` путь относительный или с обратными слэшами, — в installer.nsi
-путь в `File /r` — буквальный абсолютный, прямыми слэшами (подстановка
-${DEFINE} там тоже роняет makensis); при переносе проекта путь правится
-в installer.nsi руками.
-Сжатие — LZMA без /SOLID: solid на этой VM умирает от нехватки памяти.
+Почему нагрузка — одним zip-архивом: makensis 3.09 на этой VM стабильно
+умирает (SIGBUS/SIGSEGV) при сборке установщика со сжатием всего дерева
+файлов (272 МБ), а вариант «SetCompress off + payload.zip + распаковка
+при установке через прилагаемый 7za.exe (7-Zip, свободная лицензия)»
+собирается за секунды. Держи /tmp чистым: переполненный tmpfs тоже
+роняет makensis.
 
 Самотест после правок оболочки (Xvfb, Linux):
 `SMETA_PC_TEST_OUT=/tmp/pc-test.json xvfb-run -a npx electron . --no-sandbox` —
