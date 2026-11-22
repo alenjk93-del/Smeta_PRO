@@ -59,7 +59,7 @@ function callPage(fn, arg) {
 window.AndroidBridge = {
   /* --- обновления с GitHub Releases (ассеты SmetaPRO-PC-Setup-*.exe) --- */
   updVersion: function () {
-    return JSON.stringify({ name: pkg.version, code: 89 });
+    return JSON.stringify({ name: pkg.version, code: 90 });
   },
   updCheck: function () {
     ipcRenderer.invoke('upd-check')
