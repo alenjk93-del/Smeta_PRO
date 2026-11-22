@@ -1,0 +1,65 @@
+/* SmetaPRO-PC: адаптация интерфейса под широкий экран компьютера.
+   Подключается только в ПК-оболочке (preload.js), телефонная версия
+   этих стилей не видит. Узкое окно (<1000px) — прежний телефонный вид.
+   preload.js один раз оборачивает содержимое главного экрана в
+   .pc-nav (кнопки) и .pc-content (список смет) — ниже только стили. */
+@media (min-width: 1000px) {
+
+  /* Общая ширина: контент больше не жмётся в колонку 760px */
+  main { max-width: 1300px; padding: 20px 26px 60px; }
+  #appbar { padding-left: 26px; padding-right: 26px; }
+
+  /* ===== Главный экран: вариант А — боковое меню ===== */
+  #scr-home { display: flex; gap: 30px; align-items: flex-start; }
+
+  /* Тёмная панель навигации, прилипает при прокрутке списка */
+  .pc-nav {
+    width: 268px;
+    flex: none;
+    background: #0f172a;
+    border-radius: 16px;
+    padding: 16px 0 12px;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 84px;
+  }
+  .pc-content { flex: 1; min-width: 0; }
+  .pc-content h3 { font-size: 20px; margin: 4px 0 12px !important; }
+  .pc-content #news-block { margin-top: 14px; }
+
+  /* Пункты бокового меню */
+  .pc-nav .btn {
+    width: auto;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #cbd5e1;
+    justify-content: flex-start !important;
+    text-align: left;
+    padding: 12px 14px;
+    margin: 0 12px 4px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+  .pc-nav .btn:hover { background: #1e293b; color: #fff; }
+
+  /* «Новая смета» — зелёная кнопка сверху, как в макете */
+  .pc-nav #btn-new-est {
+    background: var(--acc);
+    color: #fff;
+    justify-content: center !important;
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .pc-nav #btn-new-est:hover { background: #15803d; }
+
+  /* Пара «Каталог / Шаблоны» была сеткой 1fr 1fr — в колонке вертикально */
+  .pc-nav > div {
+    display: flex !important;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 0 !important;
+  }
+  .pc-nav > div .btn { margin: 0 12px; }
+}

@@ -7,6 +7,51 @@
 const { ipcRenderer, clipboard } = require('electron');
 const pkg = require('./package.json');
 
+/* Широкий интерфейс ПК (вариант А — боковое меню): стили pc-wide.css
+   действуют только при ширине окна от 1000px; телефонная вёрстка
+   приложения не меняется. */
+try {
+  const css = require('fs').readFileSync(require('path').join(__dirname, 'pc-wide.css'), 'utf8');
+  const injectCss = () => {
+    const s = document.createElement('style');
+    s.id = 'pc-wide';
+    s.textContent = css;
+    document.head.appendChild(s);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectCss);
+  else injectCss();
+} catch (e) {}
+
+/* Главный экран: разнести кнопки и список смет по двум контейнерам
+   (.pc-nav / .pc-content), чтобы CSS мог держать их независимыми
+   колонками. Узлы ПЕРЕМЕЩАЮТСЯ, а не клонируются: id и обработчики
+   приложения сохраняются. Вне широкого окна контейнеры — обычные
+   блоки, вид не меняется. */
+try {
+  const wrapHome = () => {
+    const home = document.getElementById('scr-home');
+    if (!home || home.dataset.pcWide) return;
+    home.dataset.pcWide = '1';
+    const nav = document.createElement('aside');
+    nav.className = 'pc-nav';
+    const content = document.createElement('div');
+    content.className = 'pc-content';
+    const h3 = home.querySelector('h3');
+    const estList = document.getElementById('est-list');
+    const news = document.getElementById('news-block');
+    Array.from(home.childNodes).forEach(n => {
+      if (n !== h3 && n !== estList && n !== news) nav.appendChild(n);
+    });
+    if (h3) content.appendChild(h3);
+    if (estList) content.appendChild(estList);
+    if (news) content.appendChild(news);
+    home.appendChild(nav);
+    home.appendChild(content);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wrapHome);
+  else wrapHome();
+} catch (e) {}
+
 function callPage(fn, arg) {
   try { if (typeof window[fn] === 'function') window[fn](arg); } catch (e) {}
 }
@@ -14,7 +59,7 @@ function callPage(fn, arg) {
 window.AndroidBridge = {
   /* --- обновления с GitHub Releases (ассеты SmetaPRO-PC-Setup-*.exe) --- */
   updVersion: function () {
-    return JSON.stringify({ name: pkg.version, code: 88 });
+    return JSON.stringify({ name: pkg.version, code: 89 });
   },
   updCheck: function () {
     ipcRenderer.invoke('upd-check')
