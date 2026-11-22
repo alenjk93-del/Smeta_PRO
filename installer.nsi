@@ -13,7 +13,7 @@ Unicode true
 ; прямыми слэшами (другие формы тоже роняли makensis).
 
 !define APPNAME "Смета PRO"
-!define APPVER "1.11.25"
+!define APPVER "1.11.26"
 !define EXENAME "Смета PRO.exe"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SmetaPRO-PC"
 
