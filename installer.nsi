@@ -4,6 +4,12 @@
 Unicode true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
+
+Var UpdateMode   ; 1 — запуск из программы для обновления (/UPDATE): тихо, с перезапуском
+Var UpdateOffer  ; 1 — пользователь согласился обновить существующую установку
+Var ExistingDir
+Var ExistingVer
 
 ; Нагрузка кладётся ОДНИМ zip-архивом (dist/payload.zip — содержимое
 ; win-unpacked) и распаковывается при установке через 7za.exe:
@@ -13,7 +19,7 @@ Unicode true
 ; прямыми слэшами (другие формы тоже роняли makensis).
 
 !define APPNAME "Смета PRO"
-!define APPVER "1.11.26"
+!define APPVER "1.11.27"
 !define EXENAME "Смета PRO.exe"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SmetaPRO-PC"
 
@@ -29,6 +35,7 @@ SetCompress off
 !define MUI_UNICON "build\icon-installer.ico"
 
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE DirPre
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -38,8 +45,60 @@ SetCompress off
 
 !insertmacro MUI_LANGUAGE "Russian"
 
+Function .onInit
+  StrCpy $UpdateMode 0
+  StrCpy $UpdateOffer 0
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/UPDATE" $R1
+  ${IfNot} ${Errors}
+    ; Запуск из программы: тихое обновление в существующую папку.
+    StrCpy $UpdateMode 1
+    SetSilent silent
+  ${EndIf}
+
+  ReadRegStr $ExistingDir HKCU "Software\SmetaPRO-PC" "InstallDir"
+  ReadRegStr $ExistingVer HKCU "${UNINSTKEY}" "DisplayVersion"
+
+  ${If} $UpdateMode == 1
+    ${If} $ExistingDir != ""
+      StrCpy $INSTDIR $ExistingDir
+    ${EndIf}
+  ${Else}
+    IfSilent done
+    ${If} $ExistingDir != ""
+    ${AndIf} $ExistingVer != ""
+      MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "Смета PRO уже установлена (версия $ExistingVer).$\r$\n$\r$\nДа — обновить её до версии ${APPVER} в той же папке:$\r$\n$ExistingDir$\r$\n$\r$\nНет — установить заново, мастером с выбором папки.$\r$\nОтмена — выход." IDYES doUpdate IDNO done
+      Abort
+      doUpdate:
+        StrCpy $INSTDIR $ExistingDir
+        StrCpy $UpdateOffer 1
+    ${EndIf}
+    done:
+  ${EndIf}
+FunctionEnd
+
+Function DirPre
+  ; При согласованном обновлении папка уже известна — страницу пропускаем.
+  ${If} $UpdateOffer == 1
+    Abort
+  ${EndIf}
+FunctionEnd
+
 Section "Install"
   CreateDirectory "$INSTDIR"
+  ; Старая версия могла ещё закрываться — ждём, пока её exe освободится
+  ; (попытка открыть файл на запись; до ~15 секунд).
+  ${For} $R2 1 30
+    ClearErrors
+    FileOpen $R3 "$INSTDIR\${EXENAME}" a
+    ${If} ${Errors}
+      Sleep 500
+    ${Else}
+      FileClose $R3
+      ${Break}
+    ${EndIf}
+  ${Next}
   InitPluginsDir
   SetOutPath "$PLUGINSDIR"
   File "/home/hatch/workspace/smetapro-pc/payload-tools/7za.exe"
@@ -85,6 +144,11 @@ Section "Install"
   WriteRegStr HKCU "Software\Classes\SmetaPROTemplate" "" "Шаблон сметы SmetaPRO"
   WriteRegStr HKCU "Software\Classes\SmetaPROTemplate\DefaultIcon" "" "$INSTDIR\${EXENAME},0"
   WriteRegStr HKCU "Software\Classes\SmetaPROTemplate\shell\open\command" "" '"$INSTDIR\${EXENAME}" "%1"'
+
+  ; После тихого обновления программа запускается сама.
+  ${If} $UpdateMode == 1
+    Exec '"$INSTDIR\${EXENAME}"'
+  ${EndIf}
 SectionEnd
 
 Section "Uninstall"

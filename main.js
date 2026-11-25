@@ -193,7 +193,15 @@ ipcMain.on('upd-download', (e, href) => {
 
 ipcMain.on('upd-install', () => {
   if (downloadedSetup && fs.existsSync(downloadedSetup)) {
-    shell.openPath(downloadedSetup);
+    // Тихое обновление: установщик с флагом /UPDATE сам заменит файлы
+    // в существующей папке и перезапустит программу. Если spawn не
+    // удался — запасной путь: обычный мастер установки.
+    try {
+      const child = require('child_process').spawn(downloadedSetup, ['/UPDATE'], { detached: true, stdio: 'ignore' });
+      child.unref();
+    } catch (e) {
+      shell.openPath(downloadedSetup);
+    }
     setTimeout(() => app.quit(), 800);
   }
 });
