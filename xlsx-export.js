@@ -104,6 +104,28 @@ function pdfNum(v) {
   if (frac !== 0) out += ',' + (frac < 10 ? '0' + frac : String(frac));
   return neg ? '-' + out : out;
 }
+/* Число строк при переносе текста по словам при заданной ширине
+   колонки (в символах). Длинное слово не режется: оно занимает
+   свою строку (а если длиннее ширины — ceil(len/width) строк). */
+function wrapLines(text, width) {
+  const words = String(text == null ? '' : text).split(/\s+/).filter(w => w.length > 0);
+  if (words.length === 0) return 1;
+  let lines = 1, cur = 0;
+  for (const w of words) {
+    const wl = w.length;
+    if (cur === 0) {
+      if (wl > width) { lines += Math.ceil(wl / width) - 1; cur = wl % width; if (cur === 0) cur = width; }
+      else cur = wl;
+    } else if (cur + 1 + wl <= width) {
+      cur += 1 + wl;
+    } else {
+      lines++;
+      if (wl > width) { lines += Math.ceil(wl / width) - 1; cur = wl % width; if (cur === 0) cur = width; }
+      else cur = wl;
+    }
+  }
+  return lines;
+}
 function cText(col, row, style, text) {
   const s = style >= 0 ? ' s="' + style + '"' : '';
   return '<c r="' + col + row + '" t="inlineStr"' + s + '><is><t xml:space="preserve">' + escXml(text) + '</t></is></c>';
@@ -209,8 +231,13 @@ function buildXlsxBuffer(json) {
           const price = num(it.p), qty = num(it.q), coef = (it.k === undefined || it.k === null) ? 1 : num(it.k);
           // If cached sum differs from price*qty*coef, trust the formula result
           const formulaSum = price * qty * coef;
-          sheet += '<row r="' + row + '">'
-            + cNum('A', row, -1, globalNum) + cText('B', row, -1, str(it.n)) + cText('C', row, -1, str(it.u))
+          // 1.11.30: длинные наименования переносятся (стиль 8,
+          // wrapText) и строка получает явную высоту по числу
+          // строк переноса при ширине колонки B=62 (оценка 60).
+          const nameLines = wrapLines(str(it.n), 60);
+          const rowAttrs = nameLines > 1 ? ' ht="' + (nameLines * 15) + '" customHeight="1"' : '';
+          sheet += '<row r="' + row + '"' + rowAttrs + '>'
+            + cNum('A', row, -1, globalNum) + cText('B', row, 8, str(it.n)) + cText('C', row, -1, str(it.u))
             + cNum('D', row, -1, price) + cNum('E', row, -1, qty) + cNum('F', row, -1, coef)
             + cFormula('G', row, -1, 'D' + row + '*E' + row + '*F' + row, formulaSum)
             + '</row>'; row++; lastItemRow = row - 1;
@@ -285,7 +312,7 @@ function buildXlsxBuffer(json) {
   const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
   const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Смета" sheetId="1" r:id="rId1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>';
   const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
-  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="7"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="12"/><name val="Calibri"/></font><font><b/><sz val="13"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2E7D32"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F5E9"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="4" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="4" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="centerContinuous"/></xf><xf numFmtId="0" fontId="5" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>';
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="7"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="12"/><name val="Calibri"/></font><font><b/><sz val="13"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1E293B"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2E7D32"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F5E9"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="4" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="4" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="centerContinuous"/></xf><xf numFmtId="0" fontId="5" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf></cellXfs></styleSheet>';
   return zipStore([
     { name: '[Content_Types].xml', data: Buffer.from(ct, 'utf8') },
     { name: '_rels/.rels', data: Buffer.from(rels, 'utf8') },

@@ -107,7 +107,7 @@ try {
 window.AndroidBridge = {
   /* --- обновления с GitHub Releases (ассеты SmetaPRO-PC-Setup-*.exe) --- */
   updVersion: function () {
-    return JSON.stringify({ name: pkg.version, code: 92 });
+    return JSON.stringify({ name: pkg.version, code: 93 });
   },
   updCheck: function () {
     ipcRenderer.invoke('upd-check')
