@@ -19,7 +19,7 @@ Var ExistingVer
 ; прямыми слэшами (другие формы тоже роняли makensis).
 
 !define APPNAME "Смета PRO"
-!define APPVER "1.11.29"
+!define APPVER "1.11.30"
 !define EXENAME "Смета PRO.exe"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SmetaPRO-PC"
 
