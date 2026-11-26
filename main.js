@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const { buildXlsxBuffer } = require('./xlsx-export');
+const { buildPdfHtml } = require('./pdf-export');
 
 const RELEASES_API = 'https://api.github.com/repos/alenjk93-del/Smeta_PRO/releases?per_page=30';
 const ASSET_RE = /^SmetaPRO-PC-Setup-v(\d+)\.(\d+)\.(\d+)\.exe$/i;
@@ -62,6 +63,7 @@ function createWindow() {
           out.bridge = await mainWindow.webContents.executeJavaScript('typeof window.AndroidBridge');
           out.updVersion = await mainWindow.webContents.executeJavaScript('AndroidBridge.updVersion()');
           out.hasFolderBridge = await mainWindow.webContents.executeJavaScript('!!(window.AndroidBridge && AndroidBridge.folderStatus)');
+          out.hasGeneratePdf = await mainWindow.webContents.executeJavaScript('!!(window.AndroidBridge && AndroidBridge.generatePdf && AndroidBridge.sharePdf)');
           out.bodyText = (await mainWindow.webContents.executeJavaScript('document.body.innerText.slice(0, 200)')) || '';
           await mainWindow.webContents.executeJavaScript('localStorage.setItem("__pc_test", "1")');
           out.localStorage = await mainWindow.webContents.executeJavaScript('localStorage.getItem("__pc_test")');
@@ -108,6 +110,34 @@ ipcMain.on('save-xlsx', (e, json) => {
   try {
     const pay = JSON.parse(json);
     saveWithDialog((pay.fileBase || 'Smeta') + '.xlsx', buildXlsxBuffer(json));
+  } catch (err) {}
+});
+
+/* Настоящий PDF-файл (как мобильный buildPdf): печатный HTML из
+   payload рендерится скрытым окном через printToPDF и сохраняется
+   диалогом. Поля страницы как в Java: 42pt по бокам/сверху, 48pt снизу. */
+async function buildPdfBuffer(pay) {
+  const html = buildPdfHtml(pay);
+  const tmpFile = path.join(app.getPath('temp'), 'smetapro-print-' + Date.now() + '.html');
+  fs.writeFileSync(tmpFile, html, 'utf8');
+  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
+  try {
+    await win.loadFile(tmpFile);
+    return await win.webContents.printToPDF({
+      pageSize: 'A4',
+      printBackground: true,
+      margins: { marginType: 'custom', top: 42 / 72, bottom: 48 / 72, left: 42 / 72, right: 42 / 72 }
+    });
+  } finally {
+    try { win.close(); } catch (e) {}
+    try { fs.unlinkSync(tmpFile); } catch (e) {}
+  }
+}
+ipcMain.on('save-pdf', async (e, json) => {
+  try {
+    const pay = JSON.parse(json);
+    const buf = await buildPdfBuffer(pay);
+    saveWithDialog((pay.fileBase || 'Smeta') + '.pdf', buf);
   } catch (err) {}
 });
 
